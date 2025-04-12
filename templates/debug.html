@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depurador CAPTCHA SICAR</title>
+    
+    <!-- jQuery (antes do Bootstrap) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Bootstrap CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #3d4852;
+            --secondary-color: #5c7cfa;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ff9800;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            padding-bottom: 50px;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            color: white;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            border-bottom: none;
+        }
+        
+        .btn {
+            border-radius: 4px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        
+        .html-preview {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+        
+        .error-message {
+            color: var(--danger-color);
+            margin-bottom: 8px;
+        }
+        
+        .debug-item {
+            margin-bottom: 5px;
+        }
+        
+        .debug-value {
+            font-weight: 600;
+        }
+        
+        .debug-label {
+            color: #666;
+        }
+        
+        .captcha-preview {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .result-box {
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .success-box {
+            background-color: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.2);
+        }
+        
+        .error-box {
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand">
+                <i class="fas fa-bug me-2"></i> Depurador CAPTCHA SICAR
+            </span>
+            <span class="text-light">
+                Hora atual: {{ debug_info.time }}
+            </span>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> 
+                    Esta página mostra informações de depuração para identificar por que o CAPTCHA não está sendo detectado.
+                    Use o botão <strong>Forçar Verificação</strong> para tentar detectar o CAPTCHA manualmente.
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="forceCheckBtn" class="btn btn-warning">
+                        <i class="fas fa-sync-alt me-1"></i> Forçar Verificação do CAPTCHA
+                    </button>
+                    <button id="refreshBtn" class="btn btn-outline-secondary">
+                        <i class="fas fa-redo me-1"></i> Atualizar Página de Debug
+                    </button>
+                    <a href="/" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-1"></i> Voltar para o Espelho CAPTCHA
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div id="forceCheckResult" class="d-none">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-search me-2"></i> Resultado da Verificação Forçada
+                </div>
+                <div class="card-body">
+                    <div id="forceCheckMessage"></div>
+                    <div id="resultBox" class="result-box"></div>
+                    <div id="captchaPreview" class="captcha-preview mt-3 d-none">
+                        <h5>Prévia do CAPTCHA:</h5>
+                        <img id="captchaImage" src="" alt="CAPTCHA" class="img-fluid">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6">
+                <!-- Informações do Sistema -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-cogs me-2"></i> Informações do Sistema
+                    </div>
+                    <div class="card-body">
+                        <div class="debug-item">
+                            <span class="debug-label">Status do Driver:</span> 
+                            <span class="debug-value {{ 'text-success' if debug_info.driver_active else 'text-danger' }}">
+                                {{ 'Ativo' if debug_info.driver_active else 'Inativo' }}
+                            </span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Monitoramento:</span> 
+                            <span class="debug-value {{ 'text-success' if debug_info.monitor_active else 'text-danger' }}">
+                                {{ 'Ativo' if debug_info.monitor_active else 'Inativo' }}
+                            </span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Versão Python:</span> 
+                            <span class="debug-value">{{ debug_info.python_version.split()[0] }}</span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Versão Flask:</span> 
+                            <span class="debug-value">{{ debug_info.flask_version }}</span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Versão Selenium:</span> 
+                            <span class="debug-value">{{ debug_info.selenium_version }}</span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Sistema Operacional:</span> 
+                            <span class="debug-value">{{ debug_info.server_os }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status do Driver -->
+                {% if debug_info.driver_active %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-browser me-2"></i> Informações do Navegador
+                    </div>
+                    <div class="card-body">
+                        <div class="debug-item">
+                            <span class="debug-label">URL Atual:</span> 
+                            <span class="debug-value">{{ driver_info.current_url }}</span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Título da Página:</span> 
+                            <span class="debug-value">{{ driver_info.title }}</span>
+                        </div>
+                        <div class="debug-item">
+                            <span class="debug-label">Janelas Abertas:</span> 
+                            <span class="debug-value">{{ driver_info.window_handles }}</span>
+                        </div>
+                        
+                        <hr>
+                        <h6>Status dos Elementos</h6>
+                        
+                        <div class="debug-item">
+                            <span class="debug-label">Modal do CAPTCHA:</span> 
+                            <span class="debug-value {{ 'text-success' if driver_info.modal_exists and driver_info.modal_visible else 'text-danger' }}">
+                                {% if driver_info.modal_exists %}
+                                    {{ 'Visível' if driver_info.modal_visible else 'Não visível' }}
+                                {% else %}
+                                    Não encontrado
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="debug-item">
+                            <span class="debug-label">CAPTCHA:</span> 
+                            <span class="debug-value {{ 'text-success' if driver_info.captcha_exists and driver_info.captcha_visible else 'text-danger' }}">
+                                {% if driver_info.captcha_exists %}
+                                    {{ 'Visível' if driver_info.captcha_visible else 'Não visível' }}
+                                {% else %}
+                                    Não encontrado
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="debug-item">
+                            <span class="debug-label">Botão de Refresh:</span> 
+                            <span class="debug-value {{ 'text-success' if driver_info.refresh_button_exists and driver_info.refresh_button_visible else 'text-danger' }}">
+                                {% if driver_info.refresh_button_exists %}
+                                    {{ 'Visível' if driver_info.refresh_button_visible else 'Não visível' }}
+                                {% else %}
+                                    Não encontrado
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="debug-item">
+                            <span class="debug-label">Campo de Texto:</span> 
+                            <span class="debug-value {{ 'text-success' if driver_info.captcha_input_exists and driver_info.captcha_input_visible else 'text-danger' }}">
+                                {% if driver_info.captcha_input_exists %}
+                                    {{ 'Visível' if driver_info.captcha_input_visible else 'Não visível' }}
+                                {% else %}
+                                    Não encontrado
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        {% if driver_info.captcha_exists and driver_info.captcha_src %}
+                        <div class="captcha-preview mt-3">
+                            <h6>CAPTCHA Detectado:</h6>
+                            <img src="{{ driver_info.captcha_src }}" alt="CAPTCHA" class="img-fluid">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Mensagens de Erro -->
+                {% if error_messages %}
+                <div class="card mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <i class="fas fa-exclamation-triangle me-2"></i> Erros Detectados
+                    </div>
+                    <div class="card-body">
+                        {% for error in error_messages %}
+                        <div class="error-message">
+                            <i class="fas fa-times-circle me-1"></i> {{ error }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="col-lg-6">
+                <!-- HTML do CAPTCHA -->
+                {% if captcha_html %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-code me-2"></i> HTML do CAPTCHA
+                    </div>
+                    <div class="card-body">
+                        <div class="html-preview">{{ captcha_html }}</div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Logs Recentes -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-list-alt me-2"></i> Logs Recentes
+                    </div>
+                    <div class="card-body">
+                        <div class="log-container">
+                            {% for log in recent_logs %}
+                            <div class="log-entry">{{ log }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- HTML da Página -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-file-code me-2"></i> Fonte da Página
+                    </div>
+                    <div class="card-body">
+                        <div class="html-preview">{{ driver_html }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        $(document).ready(function() {
+            // Botão de atualizar a página
+            $('#refreshBtn').click(function() {
+                location.reload();
+            });
+            
+            // Botão de forçar verificação do CAPTCHA
+            $('#forceCheckBtn').click(function() {
+                const btn = $(this);
+                const originalText = btn.html();
+                
+                // Mostra o loader no botão
+                btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Verificando...');
+                btn.prop('disabled', true);
+                
+                // Oculta resultados anteriores
+                $('#forceCheckResult').addClass('d-none');
+                
+                // Faz a requisição para forçar a verificação
+                $.ajax({
+                    url: '/force_check_captcha',
+                    type: 'POST',
+                    success: function(response) {
+                        // Mostra a seção de resultados
+                        $('#forceCheckResult').removeClass('d-none');
+                        
+                        if (response.success) {
+                            $('#forceCheckMessage').html(
+                                '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i> ' + 
+                                response.message + '</div>'
+                            );
+                            $('#resultBox').html(JSON.stringify(response, null, 2));
+                            $('#resultBox').addClass('success-box').removeClass('error-box');
+                            
+                            // Mostra a imagem do CAPTCHA
+                            $('#captchaPreview').removeClass('d-none');
+                            $('#captchaImage').attr('src', response.src);
+                        } else {
+                            $('#forceCheckMessage').html(
+                                '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i> ' + 
+                                response.message + '</div>'
+                            );
+                            $('#resultBox').html(JSON.stringify(response, null, 2));
+                            $('#resultBox').addClass('error-box').removeClass('success-box');
+                            
+                            // Oculta a imagem do CAPTCHA
+                            $('#captchaPreview').addClass('d-none');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        // Mostra a seção de resultados com a mensagem de erro
+                        $('#forceCheckResult').removeClass('d-none');
+                        $('#forceCheckMessage').html(
+                            '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i> ' + 
+                            'Erro na requisição: ' + error + '</div>'
+                        );
+                        $('#resultBox').html('Status: ' + status + '\nErro: ' + error);
+                        $('#resultBox').addClass('error-box').removeClass('success-box');
+                        
+                        // Oculta a imagem do CAPTCHA
+                        $('#captchaPreview').addClass('d-none');
+                    },
+                    complete: function() {
+                        // Restaura o botão
+                        btn.html(originalText);
+                        btn.prop('disabled', false);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

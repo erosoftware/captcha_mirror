@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espelho de CAPTCHA SICAR</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f5f5f5;
+        }
+        .browser-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .browser-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .captcha-container {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-active {
+            background-color: #28a745;
+        }
+        .status-inactive {
+            background-color: #dc3545;
+        }
+        .log-container {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-error {
+            color: #dc3545;
+        }
+        .log-success {
+            color: #28a745;
+        }
+        .log-info {
+            color: #17a2b8;
+        }
+        .log-warning {
+            color: #ffc107;
+        }
+        
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+        
+        .log-container {
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .log-info {
+            color: #0c5460;
+        }
+        
+        .log-warning {
+            color: #856404;
+        }
+        
+        .log-error {
+            color: #721c24;
+        }
+        
+        .log-success {
+            color: #155724;
+        }
+        
+        .card {
+            height: 100%;
+        }
+        
+        .row-equal {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        .row-equal > [class*='col-'] {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .row-equal .card {
+            flex: 1;
+        }
+        
+        .captcha-image-container {
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row row-equal">
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Controles</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="btn-group mb-3" role="group">
+                            <button id="start-browser" class="btn btn-success">Iniciar Navegador</button>
+                            <button id="stop-browser" class="btn btn-danger">Encerrar Navegador</button>
+                            <button id="force-download" class="btn btn-primary">Forçar Baixar Shapefile</button>
+                            <div id="start-browser-spinner" class="spinner-border text-info ml-2" role="status" style="display: none;"></div>
+                        </div>
+                        
+                        <hr>
+                        <h6>Status:</h6>
+                        <table class="table table-sm table-bordered">
+                            <tr>
+                                <th>Navegador:</th>
+                                <td><span id="browser-status" class="badge badge-danger">Não Iniciado</span></td>
+                            </tr>
+                            <tr>
+                                <th>CAPTCHA:</th>
+                                <td><span id="captcha-status" class="badge badge-danger">Não</span></td>
+                            </tr>
+                            <tr>
+                                <th>Shapefile:</th>
+                                <td><span id="shapefile-status" class="badge badge-danger">Não Baixado</span></td>
+                            </tr>
+                            <tr>
+                                <th>Socket:</th>
+                                <td><span id="socket-status" class="badge badge-danger">Desconectado</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">CAPTCHA</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="captcha-display" class="text-center mb-4">
+                            <div class="captcha-image-container mb-3 border p-2" style="height: 120px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                                <p id="captcha-waiting-text">Aguardando CAPTCHA do site SICAR...</p>
+                                <img id="captcha-image" src="" alt="CAPTCHA Image" style="display: none; max-width: 100%; max-height: 100px;" class="mb-0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="captcha-input">Resolução do CAPTCHA:</label>
+                            <input type="text" id="captcha-input" class="form-control" placeholder="Digite o código do CAPTCHA aqui">
+                        </div>
+                        <button id="send-captcha-btn" class="btn btn-primary btn-block">Enviar CAPTCHA</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">Logs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="log-content" class="log-container">
+                            <!-- Logs serão adicionados aqui dinamicamente -->
+                        </div>
+                        <button id="clear-logs-btn" class="btn btn-secondary btn-sm mt-2">Limpar Logs</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-white">
+                        <h5 class="card-title mb-0">Depurador do Servidor</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="server-log-container" class="log-container">
+                            <!-- Logs do servidor serão adicionados aqui dinamicamente -->
+                        </div>
+                        <button id="clear-server-logs-btn" class="btn btn-secondary btn-sm mt-2">Limpar Logs do Servidor</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">Downloads</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="downloads-container">
+                            <p id="no-downloads">Nenhum shapefile baixado ainda.</p>
+                            <ul id="downloads-list" class="list-group">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Configurações para o Socket.IO com reconexão
+            const socket = io({
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000
+            });
+            
+            // Eventos de conexão do socket
+            socket.on('connect', function() {
+                addLog('Conectado ao servidor WebSocket', 'success');
+                $('#connection-status').removeClass('badge-danger').addClass('badge-success').text('Conectado');
+                checkBrowserStatus();
+                startPingInterval();
+            });
+            
+            socket.on('disconnect', function() {
+                addLog('Desconectado do servidor WebSocket', 'warning');
+                $('#connection-status').removeClass('badge-success').addClass('badge-danger').text('Desconectado');
+                startReconnecting();
+                if (pingInterval) {
+                    clearInterval(pingInterval);
+                    pingInterval = null;
+                }
+            });
+            
+            socket.on('connect_error', function(error) {
+                addLog('Erro de conexão: ' + error, 'error');
+                $('#connection-status').removeClass('badge-success').addClass('badge-danger').text('Erro');
+                startReconnecting();
+            });
+            
+            socket.on('reconnect_attempt', function(attemptNumber) {
+                addLog('Tentando reconectar... (tentativa ' + attemptNumber + ')', 'info');
+                $('#connection-status').removeClass('badge-success badge-danger').addClass('badge-warning').text('Reconectando');
+            });
+            
+            socket.on('reconnect', function(attemptNumber) {
+                addLog('Reconectado ao servidor WebSocket após ' + attemptNumber + ' tentativas', 'success');
+                $('#connection-status').removeClass('badge-warning badge-danger').addClass('badge-success').text('Conectado');
+                checkBrowserStatus();
+            });
+            
+            // Função para iniciar a reconexão manual
+            function startReconnecting() {
+                if (!socket.connected) {
+                    socket.connect();
+                }
+            }
+            
+            // Outros eventos e funções
+            socket.on('captcha_detected', function(data) {
+                showCaptcha(data.image);
+                $('#captcha-status').removeClass('badge-danger').addClass('badge-success').text('Sim');
+                addLog('CAPTCHA detectado!', 'success');
+            });
+            
+            socket.on('driver_status', function(data) {
+                updateBrowserStatus(data.active);
+                if (data.active) {
+                    addLog('Status do navegador: Ativo', 'info');
+                } else {
+                    addLog('Status do navegador: Inativo', 'info');
+                }
+            });
+            
+            socket.on('browser_status', function(data) {
+                updateBrowserStatus(data.active);
+            });
+            
+            socket.on('log_message', function(data) {
+                addLog(data.message, data.level);
+                
+                // Adiciona ao depurador do servidor também
+                addServerLog(data.message, data.level);
+            });
+            
+            socket.on('server_log', function(data) {
+                addServerLog(data.message, data.level);
+            });
+            
+            // Inicialização do navegador
+            $('#start-browser').click(function() {
+                $(this).prop('disabled', true);
+                $('#start-browser-spinner').show();
+                
+                $.post('/start_browser', function(data) {
+                    if (data.success) {
+                        addLog('Navegador iniciado com sucesso', 'success');
+                        updateBrowserStatus(true);
+                    } else {
+                        addLog('Erro ao iniciar navegador: ' + data.error, 'error');
+                        updateBrowserStatus(false);
+                        $('#start-browser').prop('disabled', false);
+                    }
+                    $('#start-browser-spinner').hide();
+                }).fail(function() {
+                    addLog('Falha na comunicação com o servidor', 'error');
+                    updateBrowserStatus(false);
+                    $('#start-browser').prop('disabled', false);
+                    $('#start-browser-spinner').hide();
+                });
+            });
+            
+            // Encerrar navegador
+            $('#stop-browser').click(function() {
+                $.ajax({
+                    url: '/stop',
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            addLog('Navegador encerrado com sucesso', 'success');
+                            updateBrowserStatus(false);
+                        } else {
+                            addLog('Erro ao encerrar navegador: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        addLog('Erro ao encerrar navegador: ' + error, 'error');
+                    }
+                });
+            });
+            
+            // Força download do shapefile
+            $('#force-download').click(function() {
+                addLog('Tentando forçar download do shapefile...', 'info');
+                
+                $.ajax({
+                    url: '/force_download_button',
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            addLog('Botão de download clicado automaticamente', 'success');
+                        } else {
+                            addLog('Erro: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        addLog('Erro ao forçar download: ' + error, 'error');
+                    }
+                });
+            });
+            
+            // Enviar texto do CAPTCHA
+            $('#send-captcha-btn').click(function() {
+                captchaText = $('#captcha-input').val();
+                if (!captchaText) {
+                    addLog('Por favor, digite o texto do CAPTCHA', 'warning');
+                    return;
+                }
+                
+                addLog('Enviando CAPTCHA...', 'info');
+                
+                $.ajax({
+                    url: '/send_captcha_text',
+                    type: 'POST',
+                    data: { text: captchaText },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            addLog('CAPTCHA enviado, baixando shapefile...', 'success');
+                            // Após enviar o CAPTCHA, tenta baixar o shapefile
+                            downloadShapefile();
+                        } else {
+                            addLog('Erro ao enviar texto: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        addLog('Erro ao enviar texto: ' + error, 'error');
+                    }
+                });
+            });
+            
+            // Baixar shapefile
+            function downloadShapefile() {
+                $.ajax({
+                    url: '/download_shapefile',
+                    type: 'POST',
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            addLog('Download iniciado: ' + (response.download_directory || ''), 'success');
+                        } else {
+                            addLog('Erro: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        addLog('Erro ao baixar shapefile: ' + error, 'error');
+                    }
+                });
+            }
+            
+            // Limpar log
+            $('#clear-logs-btn').click(function() {
+                $('#log-content').empty();
+            });
+            
+            // Verificar status do driver
+            function checkBrowserStatus() {
+                $.ajax({
+                    url: '/check_driver',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(response) {
+                        updateBrowserStatus(response.driver_active);
+                    },
+                    error: function(xhr, status, error) {
+                        updateBrowserStatus(false);
+                    }
+                });
+            }
+            
+            // Funções auxiliares
+            function addLog(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logItem = $(`<div class="log-${type}"></div>`).text(`[${timestamp}] ${message}`);
+                $('#log-content').append(logItem);
+                $('#log-content').scrollTop($('#log-content')[0].scrollHeight);
+            }
+            
+            function updateBrowserStatus(active) {
+                browserActive = active;
+                if (active) {
+                    $('#start-browser').prop('disabled', true);
+                    $('#stop-browser').prop('disabled', false);
+                    $('#browser-status').removeClass('badge-danger').addClass('badge-success').text('Ativo');
+                } else {
+                    $('#start-browser').prop('disabled', false);
+                    $('#stop-browser').prop('disabled', true);
+                    $('#browser-status').removeClass('badge-success').addClass('badge-danger').text('Inativo');
+                }
+            }
+            
+            // Função para mostrar o CAPTCHA
+            function showCaptcha(src) {
+                $('#captcha-waiting-text').hide();
+                $('#captcha-image').attr('src', src).show();
+                $('#captcha-status').removeClass('badge-danger').addClass('badge-success').text('Sim');
+                // Foca no campo de input do CAPTCHA
+                $('#captcha-input').val('').focus();
+            }
+            
+            let pingInterval = null;
+            
+            function startPingInterval() {
+                // Limpa interval existente
+                if (pingInterval) {
+                    clearInterval(pingInterval);
+                }
+                
+                // Inicia novo interval para ping a cada 15 segundos
+                pingInterval = setInterval(function() {
+                    if (socket.connected) {
+                        socket.emit('ping_server');
+                    }
+                }, 15000);
+            }
+            
+            socket.on('pong_response', function(data) {
+                console.log('Pong recebido do servidor:', data.timestamp);
+            });
+            
+            // Função para adicionar log ao depurador do servidor
+            function addServerLog(message, level) {
+                const timestamp = new Date().toLocaleTimeString();
+                const levelClass = level === 'error' ? 'text-danger' : 
+                                   level === 'warning' ? 'text-warning' :
+                                   level === 'success' ? 'text-success' : 'text-info';
+                
+                const logEntry = $('<div class="log-entry"></div>')
+                    .append($('<span class="timestamp"></span>').text(`[${timestamp}] `))
+                    .append($('<span></span>').addClass(levelClass).text(message));
+                
+                $('#server-log-container').append(logEntry);
+                
+                // Auto-scroll para o final
+                const container = document.getElementById('server-log-container');
+                container.scrollTop = container.scrollHeight;
+                
+                // Limita o número de entradas para evitar uso excessivo de memória
+                const maxEntries = 100;
+                const entries = $('#server-log-container .log-entry');
+                if (entries.length > maxEntries) {
+                    entries.slice(0, entries.length - maxEntries).remove();
+                }
+            }
+            
+            // Botão para limpar logs do servidor
+            $('#clear-server-log').click(function() {
+                $('#server-log-container').empty();
+                addServerLog('Logs do servidor limpos', 'info');
+            });
+        });
+    </script>
+</body>
+</html>
