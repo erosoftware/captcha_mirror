@@ -1,2 +1,2 @@
-# captcha_mirror
-O captcha mirror é uma ferramenta desenvolvida para facilitar o acesso e download de shapefiles do SICAR. Ela atua como uma interface intermediária que simplifica o processo de download de dados de propriedades rurais de forma mais eficiente, mantendo conformidade ética ao garantir que os CAPTCHAs sejam resolvidos por humanos. 
+# Captcha Mirror - SICAR Shapefile Download Tool
+Captcha Mirror is a tool developed to streamline access and download of shapefiles from the SICAR system. It acts as an intermediary interface that simplifies the process of downloading rural property data more efficiently while maintaining ethical compliance by ensuring that CAPTCHAs are solved by humans.
